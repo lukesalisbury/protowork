@@ -1,0 +1,5 @@
+
+*.tso
+*.dll
+*.exe
+.vscode
