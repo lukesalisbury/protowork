@@ -5,6 +5,7 @@
 #include "texthandling.hpp"
 
 #include "resources/joystick_generic.hpp"
+#include "resources/joystick_snes.hpp"
 #include "resources/joystick_xbox360.hpp"
 #include "resources/keyboard_basic.hpp"
 #include "resources/mouse_generic.hpp"
@@ -17,6 +18,10 @@
 
 #define ELIX_HASHMAP_IMPLEMENTATION
 #include "elix_hashmap.hpp"
+
+uint8_t CodeOne_Fallback( AppOne * app, GameOne * game, uint8_t state) {
+	return 1;
+};
 
 struct PlatformOne {
 };
@@ -52,7 +57,7 @@ ControllerPad default_keyboard = {
 };
 
 ControllerPad default_gamepad = { 
-	"joystick", 
+	"Game pad", 
 	{  
 		{ CONTROLBUTTON, 0, SDL_CONTROLLER_BUTTON_A, 0 },
 		{ CONTROLBUTTON, 0, SDL_CONTROLLER_BUTTON_B, 0 },
@@ -104,8 +109,10 @@ void DrawTextSimple(AppOne *app, FontTexture * font, const char * string, SDL_Re
 	SDL_Rect shadowdimensions = {0, 0, 0, 0};
 
 	uint32_t cchar;
+	SpriteRefTexture * sprite = nullptr;
 
 	while ( (cchar = NextTextChar(object)) > 0 ) {
+		sprite = nullptr;
 		if (cchar == '\n' || cchar == '\r') {
 			area.y += font->padding[1];
 			area.x = position.x;
@@ -115,7 +122,7 @@ void DrawTextSimple(AppOne *app, FontTexture * font, const char * string, SDL_Re
 			area.x += font->padding[0];
 			colour = {255,255,255,255};
 			print = false;
-		} else if ( cchar == 0xA7 ) {
+		} else if ( cchar == 0xA7 /* § */) { 
 			uint32_t nchar = NextTextChar(object);
 			if ( nchar != 0xA7 ) {
 				GetTextColour(nchar, colour);
@@ -123,60 +130,48 @@ void DrawTextSimple(AppOne *app, FontTexture * font, const char * string, SDL_Re
 				cchar = nchar;
 			}
 		} else if ( cchar >= 0x2776 && cchar <= 0x27BF ) {
-				//Button
-		} else if ( cchar >= 0x25B2 && cchar <= 0x25D3 ) {
-			  //Axis
+			sprite = &app->control_default->button[cchar - 0x2776].sprite;
+		} else if ( cchar == 0x25C0 ) {
+			sprite = &app->control_default->left_stick.sprite[0]; // U+25C0	◀	x-
+		} else if ( cchar == 0x25B6 ) {
+			sprite = &app->control_default->left_stick.sprite[1]; // U+25B6	▶	x+
+		} else if ( cchar == 0x25B2 ) {
+			sprite = &app->control_default->left_stick.sprite[2]; // U+25B2	▲	y-
+		} else if ( cchar == 0x25BC ) {
+			sprite = &app->control_default->left_stick.sprite[3]; // U+25BC	▼	y+
+		} else if ( cchar == 0x25D0 ) {
+			sprite = &app->control_default->left_stick.sprite[4]; // U+25D0	◐	z-
+		}	else if ( cchar == 0x25D1 ) {
+			sprite = &app->control_default->left_stick.sprite[5]; // U+25D1	◑	z+
+		/*
+		} else if ( cchar == 0x25C1 ) 
+			sprite = &app->control_default->right_stick.sprite[0]; // U+25C1	◀	x-
+		} else if ( cchar == 0x25B7 ) 
+			sprite = &app->control_default->right_stick.sprite[1]; // U+25B7	▶	x+
+		} else if ( cchar == 0x25B3 )
+			sprite = &app->control_default->right_stick.sprite[2]; // U+25B3	▲	y-
+		} else if ( cchar == 0x25BD )
+			sprite = &app->control_default->right_stick.sprite[3]; // U+25BD	▼	y+
+		} else if ( cchar == 0x25D2 )
+			sprite = &app->control_default->right_stick.sprite[4]; // U+25D2	◐	z-
+		} else if ( cchar == 0x25D3 )
+			sprite = &app->control_default->right_stick.sprite[5]; // U+25D3	◓	z+
+		*/
 		} else if ( cchar >= 0x24CD && cchar <= 0x24CE ) {
-				//Pointer
+			//Pointer
 		} else {
 			print = true;
 		}
 
-	if ( print ) {
+		if ( print || sprite ) {
 				selected_texture = font->base_texture;
 				if ( cchar >= 32 && cchar <= 128 ) {
 					srcarea = &font->offset[cchar-32];
-				} else if ( cchar  == 0x2026 ) {
+				} else if ( cchar == 0x2026 ) {
 					srcarea = &font->offset[97]; //…
-				} else if ( cchar >= 0x2776 && cchar <= 0x27BF ) {
-					if ( app->control_default->button[cchar - 0x2776].sprite.id ) {
-						selected_texture = (SDL_Texture*)elix_hashmap_value_hash(&app->textures, app->control_default->button[cchar - 0x2776].sprite.id);
-						srcarea = &app->control_default->button[cchar - 0x2776].sprite.offset;
-					} else {
-						srcarea = &font->offset[96]; // �
-					}
-				} else if ( cchar >= 0x25B2 && cchar <= 0x25D3 ) {
-					uint8_t axis = 0;
-					if ( cchar == 0x25C0 ) // U+25C0	◀	x-
-						axis = 0;
-					else if ( cchar == 0x25B6 ) // U+25B6	▶	x+
-						axis = 1;
-					else if ( cchar == 0x25B2 ) // U+25B2	▲	y-
-						axis = 2;
-					else if ( cchar == 0x25BC ) // U+25BC	▼	y+
-						axis = 3;
-					else if ( cchar == 0x25D0 ) // U+25D0	◐	z-
-						axis = 4;
-					else if ( cchar == 0x25D1 ) // U+25D1	◑	z+
-						axis = 5;
-					else if ( cchar == 0x25C1 ) // U+25C1	◀	x-
-						axis = 6;
-					else if ( cchar == 0x25B7 ) // U+25B7	▶	x+
-						axis = 7;
-					else if ( cchar == 0x25B3 ) // U+25B3	▲	y-
-						axis = 8;
-					else if ( cchar == 0x25BD ) // U+25BD	▼	y+
-						axis = 9;
-					else if ( cchar == 0x25D2 ) // U+25D2	◐	z-
-						axis = 10;
-					else if ( cchar == 0x25D3 ) // U+25D3	◓	z+
-						axis = 11;
-					if (app->control_default->left_stick.sprite[axis%6].id ) {
-						selected_texture = (SDL_Texture*)elix_hashmap_value_hash(&app->textures, app->control_default->left_stick.sprite[axis%6].id);
-						srcarea = &app->control_default->left_stick.sprite[axis%6].offset;
-					} else {
-						srcarea = &font->offset[96]; // �
-					}
+				} else if ( sprite ) {
+					selected_texture = (SDL_Texture*)elix_hashmap_value_hash(&app->textures, sprite->id);
+					srcarea = &sprite->offset;
 				} else if ( cchar >= 0x24CD && cchar <= 0x24CE ) {
 					srcarea = &font->offset[96]; // �
 				} else {
@@ -192,7 +187,6 @@ void DrawTextSimple(AppOne *app, FontTexture * font, const char * string, SDL_Re
 					shadowarea.x = textarea.x + 1;
 					shadowarea.y = textarea.y + 1;
 
-
 					DrawTexture(app, selected_texture, srcarea, shadowarea, {14,14,14,255}, layer );
 					DrawTexture(app, selected_texture, srcarea, textarea, colour, layer );
 
@@ -202,6 +196,7 @@ void DrawTextSimple(AppOne *app, FontTexture * font, const char * string, SDL_Re
 		}
 	}
 }
+
 
 void DrawRenderItem( AppOne * app, RenderItem & item) {
 	SDL_Texture * texture = (!item.texture ? app->texture_blank : item.texture);
@@ -231,7 +226,7 @@ void BuildBitFont( SDL_Renderer * renderer, FontTexture * font ) {
 	SDL_UpdateTexture( font->base_texture, nullptr, font_eightbyeight, 256);
 
 	uint8_t x = 0, y = 0;
-	for ( uint8_t c = 0; c < 98; c++) {
+	for ( uint8_t c = 0; c < 98; c++ ) {
 		font->offset[c] = {x, y, 8, 8};
 		x += 8;
 		if ( x == 128 ) {
@@ -276,9 +271,7 @@ int32_t GetInputImage( char * name, const char * parent_name, InputDevice device
 	}
 	switch (device)	{
 		case KEYBOARD: {
-				int32_t kecode = (int32_t)SDL_GetKeyFromScancode((SDL_Scancode)symbol);
-				kecode &= ~0x40000000;
-				return SDL_snprintf(name, 63, "keyboard:%d", kecode);
+				return SDL_snprintf(name, 63, "keyboard:%d", symbol);
 		}
 		case MOUSEAXIS: {
 			return SDL_snprintf(name, 63, "mouse:axis");
@@ -452,7 +445,7 @@ int8_t HandleEvents(AppOne * app, uint8_t previous_state) {
 						const char * name = SDL_GameControllerName(controller);
 						if ( event.cdevice.which >= 0 && event.cdevice.which < 4) {
 							//TODO:Better handing of controller name
-							SDL_snprintf(app->control_pads[1 + event.cdevice.which].name, 16, "%s", (name && name[0] == 'X' ? name : "Game pad"));
+							SDL_snprintf(app->control_pads[1 + event.cdevice.which].name, 24, "%s", (name && name[0] == 'X' ? name : "Game pad"));
 							SetContolPadInputSprites(app, app->control_pads[1 + event.cdevice.which]);
 						}
 					}
@@ -547,16 +540,24 @@ int8_t HandleEvents(AppOne * app, uint8_t previous_state) {
 
 	for (ControllerPad &pad : app->control_pads) {
 		uint32_t input_test = 0;
-		pad.button[0].value = UpdatGetInput(app, input_test, 0, pad.button[0].device, pad.button[0].device_number, pad.button[0].sym);
-		pad.button[1].value = UpdatGetInput(app, input_test, 1, pad.button[1].device, pad.button[1].device_number, pad.button[1].sym);
-		pad.button[2].value = UpdatGetInput(app, input_test, 2, pad.button[2].device, pad.button[2].device_number, pad.button[2].sym);
-		pad.button[3].value = UpdatGetInput(app, input_test, 3, pad.button[3].device, pad.button[3].device_number, pad.button[3].sym);
-		pad.button[4].value = UpdatGetInput(app, input_test, 4, pad.button[4].device, pad.button[4].device_number, pad.button[4].sym);
-		pad.button[5].value = UpdatGetInput(app, input_test, 5, pad.button[5].device, pad.button[5].device_number, pad.button[5].sym);
-		pad.button[6].value = UpdatGetInput(app, input_test, 6, pad.button[6].device, pad.button[6].device_number, pad.button[6].sym);
-		pad.button[7].value = UpdatGetInput(app, input_test, 7, pad.button[7].device, pad.button[7].device_number, pad.button[7].sym);
-		pad.button[8].value = UpdatGetInput(app, input_test, 8, pad.button[8].device, pad.button[8].device_number, pad.button[8].sym);
-		pad.button[9].value = UpdatGetInput(app, input_test, 9, pad.button[9].device, pad.button[9].device_number, pad.button[9].sym);
+		for (uint8_t i = 0; i < 10; i++)
+		{
+			int16_t value = UpdatGetInput(app, input_test, 0, pad.button[i].device, pad.button[i].device_number, pad.button[i].sym);
+			if ( value ) {
+				if ( pad.button[i].value.state == BUTTON_NOTHING ) {
+					pad.button[i].value.state = BUTTON_PRESSED;
+					pad.button[i].value.timer = 0;
+				} else if ( pad.button[i].value.state == BUTTON_PRESSED ) {
+					pad.button[i].value.state = BUTTON_HELD;
+					pad.button[i].value.timer += (uint16_t)app->frame_ms;
+				}
+			} else if ( pad.button[i].value.state == BUTTON_HELD || pad.button[i].value.state == BUTTON_PRESSED) {
+				pad.button[i].value.state = BUTTON_RELEASED; //Keep Timer value;
+			} else {
+				pad.button[i].value.state = BUTTON_NOTHING;
+				pad.button[i].value.timer = 0;
+			}
+		}
 		switch (pad.left_stick.device) {
 			case KEYBOARD: {
 				int16_t key1, key2;
@@ -621,10 +622,18 @@ void SetContolPadInput(AppOne *app, ControllerPad & pad ) {
 
 
 void UpdateGameCodeFunction(CodeOne & platform) {
-	platform.Frame = (uint8_t (*)( AppOne * app, GameOne * game, uint8_t state))SDL_LoadFunction(platform.handle, "GameFrame");
-	platform.Init = (uint8_t (*)( AppOne * app, GameOne * game, uint8_t state))SDL_LoadFunction(platform.handle, "GameInit");
-	platform.Destory = (uint8_t (*)( AppOne * app, GameOne * game, uint8_t state))SDL_LoadFunction(platform.handle, "GameDestory");
-	platform.Reload = (uint8_t (*)( AppOne * app, GameOne * game, uint8_t state))SDL_LoadFunction(platform.handle, "GameReload");
+	if ( platform.handle ) {
+		platform.Frame = (uint8_t (*)( AppOne * app, GameOne * game, uint8_t state))SDL_LoadFunction(platform.handle, "GameFrame");
+		platform.Init = (uint8_t (*)( AppOne * app, GameOne * game, uint8_t state))SDL_LoadFunction(platform.handle, "GameInit");
+		platform.Destory = (uint8_t (*)( AppOne * app, GameOne * game, uint8_t state))SDL_LoadFunction(platform.handle, "GameDestory");
+		platform.Reload = (uint8_t (*)( AppOne * app, GameOne * game, uint8_t state))SDL_LoadFunction(platform.handle, "GameReload");
+	}
+
+	if ( !platform.Init ) { platform.Init = &CodeOne_Fallback; }
+	if ( !platform.Destory ) { platform.Destory = &CodeOne_Fallback; }
+	if ( !platform.Reload ) { platform.Reload = &CodeOne_Fallback; }
+
+
 }
 
 void LoadGameCode(CodeOne & platform) {
@@ -663,8 +672,8 @@ void ReloadGameCode(CodeOne & platform, AppOne & app) {
 
 void CleanupGameCode(CodeOne & platform) {
 	SDL_UnloadObject(platform.handle);
-
 	#ifdef _DEBUG
+	SDL_Delay(100);
 	rename(platform.handle_filename, "gamecode.dll");
 	if ( platform.counter > 1) {
 		while ( platform.counter > 0) {
@@ -675,6 +684,7 @@ void CleanupGameCode(CodeOne & platform) {
 	#endif
 }
 
+static char userinput_test[] = "%s: ◀▶▲▼◐◑❶❷❸❹❺❻❼❽❾❿➀➁➂➃➄➅△▽◁▷◒◓";
 
 int main( int argc, char **argv ) {
 	AppOne app = {0};
@@ -683,12 +693,12 @@ int main( int argc, char **argv ) {
 	uint8_t state = 1;
 
 	uint32_t fps_counter = 0;
-	char debug[64];
+	char debug[128];
 
 	SDL_Init(SDL_INIT_EVERYTHING);
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY,"1");
 
-	app.window = SDL_CreateWindow("Only One… In a Thousand", 100, 100, 720, 480, SDL_WINDOW_SHOWN|SDL_WINDOW_RESIZABLE);
+	app.window = SDL_CreateWindow("Protowork", 100, 100, 720, 500, SDL_WINDOW_SHOWN|SDL_WINDOW_RESIZABLE);
 	app.renderer = SDL_CreateRenderer(app.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE ); // | SDL_RENDERER_PRESENTVSYNC
 	SDL_SetRenderDrawBlendMode(app.renderer, SDL_BLENDMODE_NONE);
 	
@@ -709,7 +719,8 @@ int main( int argc, char **argv ) {
 	LoadInputTexture(&app, "keyboard", keyboard_sheet_data, keyboard_sheet_size, keyboard_image_data, keyboard_image_size);
 	LoadInputTexture(&app, "mouse", mouse_generic_sheet_data, mouse_generic_sheet_size, mouse_generic_image_data, mouse_generic_image_size);
 	LoadInputTexture(&app, "Game pad", joystick_generic_sheet_data, joystick_generic_sheet_size, joystick_generic_image_data, joystick_generic_image_size);
-	LoadInputTexture(&app, "XInput Controll", joystick_xbox360_sheet_data, joystick_xbox360_sheet_size, joystick_xbox360_image_data, joystick_xbox360_image_size);
+	LoadInputTexture(&app, "XInput Controller", joystick_xbox360_sheet_data, joystick_xbox360_sheet_size, joystick_xbox360_image_data, joystick_xbox360_image_size);
+	LoadInputTexture(&app, "Nintendo Clovercon", joystick_snes_sheet_data, joystick_snes_sheet_size, joystick_snes_image_data, joystick_snes_image_size);
 	
 	app.control_pads[0] = default_keyboard;
 	app.control_pads[1] = default_gamepad;
@@ -717,7 +728,7 @@ int main( int argc, char **argv ) {
 	app.control_pads[3] = default_gamepad;
 	app.control_pads[4] = default_gamepad;
 	
-	for (size_t i = 1; i < 4; i++) {
+	for (size_t i = 1; i < 5; i++) {
 		app.control_pads[1+i].button[0].device_number = i;
 		app.control_pads[1+i].button[1].device_number = i;
 		app.control_pads[1+i].button[2].device_number = i;
@@ -732,9 +743,11 @@ int main( int argc, char **argv ) {
 		app.control_pads[1+i].right_stick.device_number = i;
 	}
 	
-	app.control_default = &app.control_pads[0];
+	app.control_default = &app.control_pads[2];
 
 	SetContolPadInput(&app, app.control_pads[0]);
+	SetContolPadInput(&app, app.control_pads[1]);
+	SetContolPadInput(&app, app.control_pads[2]);
 
 	BuildBitFont(app.renderer, &app.font_bitmap);
 
@@ -757,6 +770,7 @@ int main( int argc, char **argv ) {
 	LoadGameCode(platform);
 
 	while(state) {
+		SDL_SetRenderDrawColor(app.renderer, 0,0,0,255);
 		SDL_RenderClear(app.renderer);
 		#ifdef _DEBUG
 		ReloadGameCode(platform,app);
@@ -765,14 +779,15 @@ int main( int argc, char **argv ) {
 		if ( platform.Frame ) {
 			state = platform.Frame(&app, &game, state);
 		} else {
-			DrawTextSimple(&app, &app.font_bitmap, userinput_test, {0, 16, 40, 20}, 1.0f, 0);
+			SDL_snprintf(debug, 128, userinput_test, app.control_default->name);
+			DrawTextSimple(&app, &app.font_bitmap, debug, {0, 16, 40, 20}, 1.0f, 0);
 		}
 
 		for (size_t i = 0; i < app.display_queue.counter; i++) {
 			DrawRenderItem(&app, app.display_queue.items[i]);
 		}
 
-		SDL_snprintf(debug, 64, "RenderQueue: %d \t FPS: %d", app.display_queue.counter, app.fps);
+		SDL_snprintf(debug, 64, "RenderQueue: %d \t FPS: %d [%0.05f]", app.display_queue.counter, app.fps, app.frame_s);
 		DrawTextSimple(&app, &app.font_bitmap, debug, {0, app.viewpoint.h-20, 40, 20}, 1.0f, 0);
 
 		SDL_RenderPresent(app.renderer);
@@ -789,11 +804,13 @@ int main( int argc, char **argv ) {
 
 	}
 	platform.Destory(&app, &game, 0);
-	CleanupGameCode(platform);
+	
 
 	FreeBitFont(app.renderer, &app.font_bitmap);
 	SDL_DestroyRenderer(app.renderer);
 	SDL_DestroyWindow(app.window);
+
+	CleanupGameCode(platform);
 
 	return 0;
 }

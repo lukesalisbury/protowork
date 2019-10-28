@@ -23,6 +23,27 @@ inline uint64_t GetDelta(uint64_t counter) {
 	return (((double)counter / (double)SDL_GetPerformanceFrequency()) * 1000);
 }
 
+#if SDL_COMPILEDVERSION < SDL_VERSIONNUM(2, 0, 9)
+struct SDL_FRect
+{
+	float x,y,w,h;
+};
+
+struct SDL_FPoint {
+	float x,y;
+};
+
+inline int SDL_RenderCopyF(SDL_Renderer * renderer, SDL_Texture * texture,const SDL_Rect* srcrect, const SDL_FRect* dstrect) {
+	SDL_Rect * pdst = nullptr;
+	SDL_Rect dst;
+	if ( dstrect ) {
+		dst.w = (int)dstrect->w; dst.x = (int)dstrect->x; dst.y = (int)dstrect->y; dst.h = (int)dstrect->h;
+		pdst = &dst;
+	}
+	return SDL_RenderCopy(renderer, texture, srcrect, pdst);
+}
+#endif
+
 enum {
 	EXITING,
 	NORMAL,
@@ -69,18 +90,22 @@ struct SpriteRefTexture  {
 	SDL_Rect offset;
 };
 
+#define BUTTON_NOTHING 0
+#define BUTTON_RELEASED 1
+#define BUTTON_PRESSED 2
+#define BUTTON_HELD 3
 union ControllerValue {
-	int16_t value;
+	int16_t raw;
 	struct {
-		int16_t state:2;
-		int16_t timer:14;
+		uint16_t state:2;
+		uint16_t timer:14;
 	};
 };
 struct ControllerButton{
 	InputDevice device;
 	uint32_t device_number;
 	int16_t sym;
-	int16_t value;
+	ControllerValue value;
 	SpriteRefTexture sprite;
 };
 
@@ -93,14 +118,14 @@ struct ControllerAxis {
 };
 
 struct ControllerPad {
-	char name[16];
+	char name[24];
 	ControllerButton button[10];
 	ControllerAxis left_stick;
 	ControllerAxis right_stick;
 };
 
 struct TextureSet {
-	char name[11];
+	char name[16];
 	uint16_t x,y,w,h;
 };
 

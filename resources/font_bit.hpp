@@ -76,7 +76,6 @@ static uint16_t font_eightbyeight[7168] = {
 };
 /* ---- 8x8 font definition ---- */
 
-static char userinput_test[] = "Input: ◀▶▲▼◐◑❶❷❸❹❺❻❼❽❾❿➀➁➂➃➄➅△▽◁▷◒◓";
 
 
 #endif //BITFONT_HPP
